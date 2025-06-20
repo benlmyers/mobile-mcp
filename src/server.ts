@@ -149,11 +149,17 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_apps",
 		"List all the installed apps on the device",
 		{
+			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false."),
 			noParams
 		},
-		async ({}) => {
+		async ({ ios_use_booted = false }) => {
 			requireRobot();
-			const result = await robot!.listApps();
+			let result;
+			if (ios_use_booted && robot!.listAppsBooted) {
+				result = await robot!.listAppsBooted();
+			} else {
+				result = await robot!.listApps();
+			}
 			return `Found these apps on device: ${result.map(app => `${app.appName} (${app.packageName})`).join(", ")}`;
 		}
 	);
@@ -163,10 +169,15 @@ export const createMcpServer = (): McpServer => {
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling list_apps_on_device.",
 		{
 			packageName: z.string().describe("The package name of the app to launch"),
+			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to true.")
 		},
-		async ({ packageName }) => {
+		async ({ packageName, ios_use_booted = true }) => {
 			requireRobot();
-			await robot!.launchApp(packageName);
+			if (ios_use_booted && robot!.launchAppBooted) {
+				await robot!.launchAppBooted(packageName);
+			} else {
+				await robot!.launchApp(packageName);
+			}
 			return `Launched app ${packageName}`;
 		}
 	);
@@ -176,10 +187,15 @@ export const createMcpServer = (): McpServer => {
 		"Stop and terminate an app on mobile device",
 		{
 			packageName: z.string().describe("The package name of the app to terminate"),
+			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to true.")
 		},
-		async ({ packageName }) => {
+		async ({ packageName, ios_use_booted = true }) => {
 			requireRobot();
-			await robot!.terminateApp(packageName);
+			if (ios_use_booted && robot!.terminateAppBooted) {
+				await robot!.terminateAppBooted(packageName);
+			} else {
+				await robot!.terminateApp(packageName);
+			}
 			return `Terminated app ${packageName}`;
 		}
 	);
@@ -411,8 +427,8 @@ export const createMcpServer = (): McpServer => {
 			requireRobot();
 			const elements = await robot!.getElementsOnScreen();
 
-			// Find matching element by searching text, label, name, value, and identifier
-			const matchingElement = elements.find(element => {
+			// Find all matching elements by searching text, label, name, value, and identifier
+			const matchingElements = elements.filter(element => {
 				const searchFields = [
 					element.text,
 					element.label,
@@ -426,9 +442,29 @@ export const createMcpServer = (): McpServer => {
 				);
 			});
 
-			if (!matchingElement) {
+			if (matchingElements.length === 0) {
 				throw new ActionableError(`No element found matching query: "${query}". Available elements: ${elements.map(e => e.text || e.label || e.name || e.value || e.identifier).filter(t => t).join(", ")}`);
 			}
+
+			if (matchingElements.length > 1) {
+				const matchingElementsJson = matchingElements.map(element => ({
+					type: element.type,
+					text: element.text,
+					label: element.label,
+					name: element.name,
+					value: element.value,
+					identifier: element.identifier,
+					coordinates: {
+						x: element.rect.x + (element.rect.width / 2),
+						y: element.rect.y + (element.rect.height / 2)
+					},
+					rect: element.rect
+				}));
+
+				throw new ActionableError(`Multiple elements found matching query: "${query}". Found ${matchingElements.length} matches:\n${JSON.stringify(matchingElementsJson, null, 2)}`);
+			}
+
+			const matchingElement = matchingElements[0];
 
 			// Calculate center coordinates of the element
 			const centerX = matchingElement.rect.x + (matchingElement.rect.width / 2);

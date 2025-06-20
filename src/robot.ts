@@ -79,15 +79,33 @@ export interface Robot {
 	listApps(): Promise<InstalledApp[]>;
 
 	/**
+	 * List all installed apps using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as listApps().
+	 */
+	listAppsBooted?(): Promise<InstalledApp[]>;
+
+	/**
 	 * Launch an app.
 	 */
 	launchApp(packageName: string): Promise<void>;
+
+	/**
+	 * Launch an app using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as launchApp().
+	 */
+	launchAppBooted?(packageName: string): Promise<void>;
 
 	/**
 	 * Terminate an app. If app was already terminated (or non existent) then this
 	 * is a no-op.
 	 */
 	terminateApp(packageName: string): Promise<void>;
+
+	/**
+	 * Terminate an app using booted simulator (iOS only).
+	 * For non-iOS devices, this should behave the same as terminateApp().
+	 */
+	terminateAppBooted?(packageName: string): Promise<void>;
 
 	/**
 	 * Open a URL in the device's web browser. Can be an https:// url, or a
