@@ -148,5 +148,5 @@ export interface Robot {
 	/**
 	 * Get device logs with optional filtering.
 	 */
-	getDeviceLogs(options?: { timeWindow?: string; filter?: string; iosUseBooted?: boolean; process?: string }): Promise<string>;
+	getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string>;
 }

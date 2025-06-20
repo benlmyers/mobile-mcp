@@ -290,7 +290,7 @@ export class AndroidRobot implements Robot {
 		return rotation === "0" ? "portrait" : "landscape";
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; iosUseBooted?: boolean; process?: string }): Promise<string> {
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
 		const timeWindow = options?.timeWindow || "1m";
 		const filter = options?.filter;
 		const processFilter = options?.process;

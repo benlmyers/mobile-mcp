@@ -195,7 +195,7 @@ export class IosRobot implements Robot {
 		return await wda.getOrientation();
 	}
 
-	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; iosUseBooted?: boolean; process?: string }): Promise<string> {
+	public async getDeviceLogs(options?: { timeWindow?: string; filter?: string; process?: string }): Promise<string> {
 		await this.assertTunnelRunning();
 		const timeWindow = options?.timeWindow || "1m";
 		const filter = options?.filter;
@@ -248,25 +248,25 @@ export class IosManager {
 		}
 	}
 
-	public async getDeviceName(deviceId: string): Promise<string> {
+	public getDeviceName(deviceId: string): string {
 		const output = execFileSync(getGoIosPath(), ["info", "--udid", deviceId]).toString();
 		const json: InfoCommandOutput = JSON.parse(output);
 		return json.DeviceName;
 	}
 
-	public async listDevices(): Promise<IosDevice[]> {
-		if (!(await this.isGoIosInstalled())) {
+	public listDevices(): IosDevice[] {
+		if (!this.isGoIosInstalled()) {
 			console.error("go-ios is not installed, no physical iOS devices can be detected");
 			return [];
 		}
 
 		const output = execFileSync(getGoIosPath(), ["list"]).toString();
 		const json: ListCommandOutput = JSON.parse(output);
-		const devices = json.deviceList.map(async device => ({
+		const devices = json.deviceList.map(device => ({
 			deviceId: device,
-			deviceName: await this.getDeviceName(device),
+			deviceName: this.getDeviceName(device),
 		}));
 
-		return Promise.all(devices);
+		return devices;
 	}
 }

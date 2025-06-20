@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult } from "@modelcontextprotocol/sdk/types";
 import { z, ZodRawShape, ZodTypeAny } from "zod";
+import * as fs from "fs";
 import path from "path";
 import { tmpdir } from "os";
 import { randomBytes } from "crypto";
@@ -58,6 +59,7 @@ export const createMcpServer = (): McpServer => {
 		},
 	});
 
+	// an empty object to satisfy windsurf
 	const noParams = z.object({});
 
 	const tool = (name: string, description: string, paramsSchema: ZodRawShape, cb: (args: z.objectOutputType<ZodRawShape, ZodTypeAny>) => Promise<string>) => {
@@ -98,6 +100,43 @@ export const createMcpServer = (): McpServer => {
 	};
 
 	tool(
+		"mobile_use_default_device",
+		"Use the default device. This is a shortcut for mobile_use_device with deviceType=simulator and device=simulator_name",
+		{
+			noParams
+		},
+		async () => {
+			const iosManager = new IosManager();
+			const androidManager = new AndroidDeviceManager();
+			const simulators = simulatorManager.listBootedSimulators();
+			const androidDevices = androidManager.getConnectedDevices();
+			const iosDevices = iosManager.listDevices();
+
+			const sum = simulators.length + androidDevices.length + iosDevices.length;
+			if (sum === 0) {
+				throw new ActionableError("No devices found. Please connect a device and try again.");
+			} else if (sum >= 2) {
+				throw new ActionableError("Multiple devices found. Please use the mobile_list_available_devices tool to list available devices and select one.");
+			}
+
+			// only one device connected, let's find it now
+			if (simulators.length === 1) {
+				robot = simulatorManager.getSimulator(simulators[0].name);
+				return `Selected default device: ${simulators[0].name}`;
+			} else if (androidDevices.length === 1) {
+				robot = new AndroidRobot(androidDevices[0].deviceId);
+				return `Selected default device: ${androidDevices[0].deviceId}`;
+			} else if (iosDevices.length === 1) {
+				robot = new IosRobot(iosDevices[0].deviceId);
+				return `Selected default device: ${iosDevices[0].deviceId}`;
+			}
+
+			// how did this happen?
+			throw new ActionableError("No device selected. Please use the mobile_list_available_devices tool to list available devices and select one.");
+		}
+	);
+
+	tool(
 		"mobile_list_available_devices",
 		"List all available devices. This includes both physical devices and simulators. If there is more than one device returned, you need to let the user select one of them.",
 		{
@@ -106,8 +145,8 @@ export const createMcpServer = (): McpServer => {
 		async ({}) => {
 			const iosManager = new IosManager();
 			const androidManager = new AndroidDeviceManager();
-			const devices = simulatorManager.listBootedSimulators();
-			const simulatorNames = devices.map(d => d.name);
+			const simulators = simulatorManager.listBootedSimulators();
+			const simulatorNames = simulators.map(d => d.name);
 			const androidDevices = androidManager.getConnectedDevices();
 			const iosDevices = await iosManager.listDevices();
 			const iosDeviceNames = iosDevices.map(d => d.deviceId);
@@ -348,6 +387,21 @@ export const createMcpServer = (): McpServer => {
 		}
 	);
 
+	tool(
+		"mobile_save_screenshot",
+		"Save a screenshot of the mobile device to a file",
+		{
+			saveTo: z.string().describe("The path to save the screenshot to"),
+		},
+		async ({ saveTo }) => {
+			requireRobot();
+
+			const screenshot = await robot!.getScreenshot();
+			fs.writeFileSync(saveTo, screenshot);
+			return `Screenshot saved to: ${saveTo}`;
+		}
+	);
+
 	server.tool(
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
@@ -514,12 +568,11 @@ export const createMcpServer = (): McpServer => {
 		{
 			timeWindow: z.string().optional().describe("Time window to look back (e.g., '5m' for 5 minutes, '1h' for 1 hour). Defaults to '1m'"),
 			filter: z.string().optional().describe("Filter logs containing this query (case-insensitive). For Android: supports 'package:mine <query>' (user apps only), 'package:com.app.bundle <query>' (specific app), or '<query>' (text search). For iOS: simple text search only."),
-			iosUseBooted: z.boolean().optional().describe("For iOS simulators only: whether to use the booted simulator instead of the selected device UUID. Defaults to false"),
 			process: z.string().optional().describe("Filter logs to a specific process/app bundle ID (e.g., 'com.ramp.Ramp.ios'). Can be combined with 'filter' for text search within that process. If not provided, attempts to auto-detect running user apps.")
 		},
-		async ({ timeWindow, filter, iosUseBooted, process }) => {
+		async ({ timeWindow, filter, process }) => {
 			requireRobot();
-			const logs = await robot!.getDeviceLogs({ timeWindow, filter, iosUseBooted, process });
+			const logs = await robot!.getDeviceLogs({ timeWindow, filter, process });
 			const filterText = filter ? ` (filtered by: ${filter})` : "";
 			const processText = process ? ` (process: ${process})` : "";
 			const timeText = timeWindow ? ` from last ${timeWindow}` : "";
