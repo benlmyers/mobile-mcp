@@ -202,17 +202,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_list_apps",
 		"List all the installed apps on the device",
 		{
-			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false."),
 			noParams
 		},
-		async ({ ios_use_booted = false }) => {
+		async ({}) => {
 			requireRobot();
-			let result;
-			if (ios_use_booted && robot!.listAppsBooted) {
-				result = await robot!.listAppsBooted();
-			} else {
-				result = await robot!.listApps();
-			}
+			const result = await robot!.listApps();
 			return `Found these apps on device: ${result.map(app => `${app.appName} (${app.packageName})`).join(", ")}`;
 		}
 	);
@@ -221,16 +215,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_launch_app",
 		"Launch an app on mobile device. Use this to open a specific app. You can find the package name of the app by calling list_apps_on_device.",
 		{
-			packageName: z.string().describe("The package name of the app to launch"),
-			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to true.")
+			packageName: z.string().describe("The package name of the app to launch")
 		},
-		async ({ packageName, ios_use_booted = true }) => {
+		async ({ packageName }) => {
 			requireRobot();
-			if (ios_use_booted && robot!.launchAppBooted) {
-				await robot!.launchAppBooted(packageName);
-			} else {
-				await robot!.launchApp(packageName);
-			}
+			await robot!.launchApp(packageName);
 			return `Launched app ${packageName}`;
 		}
 	);
@@ -239,16 +228,11 @@ export const createMcpServer = (): McpServer => {
 		"mobile_terminate_app",
 		"Stop and terminate an app on mobile device",
 		{
-			packageName: z.string().describe("The package name of the app to terminate"),
-			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to true.")
+			packageName: z.string().describe("The package name of the app to terminate")
 		},
-		async ({ packageName, ios_use_booted = true }) => {
+		async ({ packageName }) => {
 			requireRobot();
-			if (ios_use_booted && robot!.terminateAppBooted) {
-				await robot!.terminateAppBooted(packageName);
-			} else {
-				await robot!.terminateApp(packageName);
-			}
+			await robot!.terminateApp(packageName);
 			return `Terminated app ${packageName}`;
 		}
 	);
@@ -406,21 +390,15 @@ export const createMcpServer = (): McpServer => {
 		"mobile_take_screenshot",
 		"Take a screenshot of the mobile device. Use this to understand what's on screen, if you need to press an element that is available through view hierarchy then you must list elements on screen instead. Do not cache this result.",
 		{
-			ios_use_booted: z.boolean().optional().describe("Whether to use the booted simulator instead of the selected device UUID. Defaults to false."),
 			save: z.boolean().optional().describe("Whether to save the compressed screenshot to disk. Defaults to false.")
 		},
-		async ({ ios_use_booted = true, save = false }) => {
+		async ({ save = false }) => {
 			requireRobot();
 
 			try {
 				const screenSize = await robot!.getScreenSize();
 
-				let screenshot: Buffer;
-				if (ios_use_booted && robot!.getScreenshotBooted) {
-					screenshot = await robot!.getScreenshotBooted();
-				} else {
-					screenshot = await robot!.getScreenshot();
-				}
+				let screenshot = await robot!.getScreenshot();
 				let mimeType = "image/png";
 
 				// validate we received a png, will throw exception otherwise
